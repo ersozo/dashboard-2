@@ -42,23 +42,27 @@
                     totalFail += row.fail;
                     totalProduction += row.total;
 
+                    // Yüzde hesaplama
+                    let failRate = row.total > 0 ? ((row.fail / row.total) * 100).toFixed(1) + "%" : "0%";
+
                     let tr = document.createElement("tr");
                     tr.className = index % 2 === 0 ? "bg-gray-100" : "bg-white"; // Alternatif arka plan rengi
 
                     tr.innerHTML = `
                         <td class="border px-4 py-2 text-center">${row.hour}:00 - ${row.hour + 1}:00</td>
                         <td class="border px-4 py-2 text-center text-green-600 font-semibold">${row.success}</td>
-                        <td class="border px-4 py-2 text-center text-red-600 font-semibold">${row.fail}</td>
+                        <td class="border px-4 py-2 text-center text-red-600 font-semibold">${row.fail} <span class="text-gray-500 text-sm">(${failRate})</span></td>
                         <td class="border px-4 py-2 text-center text-blue-600 font-semibold">${row.total}</td>
                     `;
                     tableBody.appendChild(tr);
                 });
 
                 // Toplam satırını güncelle
+                let totalFailRate = totalProduction > 0 ? ((totalFail / totalProduction) * 100).toFixed(1) + "%" : "0%";
                 totalRow.innerHTML = `
                     <td class="border px-4 py-2 font-bold text-center bg-gray-300">Toplam</td>
                     <td class="border px-4 py-2 font-bold text-green-700 text-center">${totalSuccess}</td>
-                    <td class="border px-4 py-2 font-bold text-red-700 text-center">${totalFail}</td>
+                    <td class="border px-4 py-2 font-bold text-red-600 text-center">${totalFail} <span class="text-gray-500 text-sm">(${totalFailRate})</span></td>
                     <td class="border px-4 py-2 font-bold text-blue-700 text-center">${totalProduction}</td>
                 `;
 
@@ -89,7 +93,7 @@
             <input type="text" id="unit_name" placeholder="Örn: Final 1A" class="mt-1 p-2 w-full border rounded">
         </div>
 
-        <button onclick="fetchData()" class="w-full bg-red-800 text-white p-2 rounded-lg hover:bg-red-700 uppercase">
+        <button onclick="fetchData()" class="w-full bg-red-800 text-white p-2 rounded-lg hover:bg-red-700 uppercase font-bold">
             göster
         </button>
 
