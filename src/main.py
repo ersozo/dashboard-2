@@ -105,3 +105,16 @@ def get_hourly_production(
     except Exception as e:
         logging.error(f"Hata oluştu: {e}")
         return {"error": "Bir hata oluştu, lütfen logları kontrol edin."}
+
+
+
+@app.get("/unit-names")
+def get_unit_names(db: Session = Depends(get_db)):
+    try:
+        query = text("SELECT DISTINCT UnitName FROM dbo.ProductRecordLog")
+        result = db.execute(query).fetchall()
+        unit_names = [row[0] for row in result]
+        return {"unit_names": unit_names}
+    except Exception as e:
+        logging.error(f"Hata oluştu: {e}")
+        return {"error": "Bir hata oluştu, lütfen logları kontrol edin."}
