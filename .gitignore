@@ -1,0 +1,57 @@
+# Python cache ve geçici dosyalar
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+
+# Sanal ortam dosyaları
+env/
+.env
+.env.local
+*.venv
+
+# Bağımlılıklar
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE ve editör dosyaları
+.vscode/
+.idea/
+*.iml
+
+# Log dosyaları
+logs/
+*.log
+*.out
+*.err
+
+# FastAPI ve Uvicorn geçici dosyaları
+instance/
+*.db
+*.sqlite3
+*.sqlite
+
+# Docker dosyaları (Eğer Docker kullanıyorsanız)
+docker-compose.override.yml
+.env.docker
+
+# Jupyter Notebook (Eğer kullanıyorsanız)
+.ipynb_checkpoints/
+
+# FastAPI statik ve medya dosyaları
+static/
+media/
+uploads/
+
+# Pytest ve test cache dosyaları
+.pytest_cache/
+.coverage
+htmlcov/
+
+# VS Code için özel ayarlar (isteğe bağlı)
+.settings/
+
+# MacOS sistem dosyaları
+.DS_Store
