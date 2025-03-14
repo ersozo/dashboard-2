@@ -1,19 +1,13 @@
-from datetime import datetime
-
 from pydantic import BaseModel
 
 
-class ProductionDataBase(BaseModel):
-    timestamp: datetime
-    count: int
-
-
-class ProductionDataCreate(ProductionDataBase):
-    pass
-
-
-class ProductionDataResponse(ProductionDataBase):
-    id: int
+# ✅ Üretim verisi için şema (READ)
+class ProductionDataResponse(BaseModel):
+    unit: str  # Birim adı (Makine ismi)
+    hour: int
+    total: int
+    success: int
+    fail: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # ✅ Pydantic V2 ile uyumlu

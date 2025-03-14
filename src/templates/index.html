@@ -6,21 +6,22 @@
     <title>Üretim Raporu</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
-    <script defer src="/static/js/app.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100 p-6">
     <h1 class="text-4xl font-bold text-center mb-6 uppercase">üretim takip</h1>
-
+    <div id="production-data"></div> 
+    
     <!-- Tarih-Saat Seçimi -->
-        <div class="flex justify-center gap-4 mb-6">
+    <div class="flex justify-center gap-4 mb-6">
         <input type="datetime-local" id="start-datetime" class="border p-2 rounded">
         <input type="datetime-local" id="end-datetime" class="border p-2 rounded">
         <button id="fetch-data-btn" class="bg-blue-500 text-white px-4 py-2 rounded uppercase hover:bg-blue-700">getir</button>
     </div>
-
+    
     <!-- Üretim Hatları -->
     <div id="grid-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-
+    
+    <script defer src="/static/js/app.js"></script>
 </body>
-<</html>
+</html>

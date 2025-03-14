@@ -1,19 +1,32 @@
 from sqlalchemy.orm import Session
-
-from models import ProductionData
-from schemas import ProductionDataCreate
+from sqlalchemy.sql import text
 
 
-def get_production_data(db: Session, limit: int = 10):
-   
-    data = db.query(ProductionData).order_by(ProductionData.timestamp.desc()).limit(limit).all()
-    print(f"Çekilen veri: {data}")  # Debug için
-    return data
+def fetch_production_data(db: Session):
+    query = text("""
+        SELECT
+            UnitName,  
+            DATEPART(HOUR, KayitTarihi) AS Hour,
+            COUNT(*) AS TotalCount,
+            SUM(CASE WHEN TestSonucu = 1 THEN 1 ELSE 0 END) AS SuccessCount,
+            SUM(CASE WHEN TestSonucu = 0 THEN 1 ELSE 0 END) AS FailCount
+        FROM dbo.ProductRecordLog
+        GROUP BY UnitName, DATEPART(HOUR, KayitTarihi)
+        ORDER BY UnitName, Hour
+    """)
 
+    result = db.execute(query).fetchall()
 
-def add_production_data(db: Session, data: ProductionDataCreate):
-    db_item = ProductionData(timestamp=data.timestamp, count=data.count)
-    db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    # ✅ Verileri dict formatında döndür
+    return [
+        {
+            "unit": row.UnitName,  # ✅ row[0] yerine daha okunur hali
+            "data": {
+                "hour": row.Hour,
+                "total": row.TotalCount,
+                "success": row.SuccessCount,
+                "fail": row.FailCount,
+            },
+        }
+        for row in result
+    ]
