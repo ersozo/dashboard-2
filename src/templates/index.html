@@ -1,118 +1,26 @@
 <!DOCTYPE html>
 <html lang="tr">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Üretim Takibi</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        async function fetchData() {
-            let startDate = document.getElementById("start_date").value;
-            let endDate = document.getElementById("end_date").value;
-            let unitName = document.getElementById("unit_name").value;
-
-            if (!startDate || !endDate || !unitName) {
-                alert("Lütfen tüm alanları doldurun!");
-                return;
-            }
-
-            let apiUrl = `http://127.0.0.1:8000/hourly-production?start_date=${startDate}&end_date=${endDate}&unit_name=${unitName}`;
-
-            try {
-                let response = await fetch(apiUrl);
-                let result = await response.json();
-
-                if (result.error) {
-                    alert(result.error);
-                    return;
-                }
-
-                let tableBody = document.getElementById("results_body");
-                let totalRow = document.getElementById("total_row");
-                tableBody.innerHTML = "";
-
-                // Toplam değerler
-                let totalSuccess = 0;
-                let totalFail = 0;
-                let totalProduction = 0;
-
-                result.data.forEach((row, index) => {
-                    totalSuccess += row.success;
-                    totalFail += row.fail;
-                    totalProduction += row.total;
-
-                    // Yüzde hesaplama
-                    let failRate = row.total > 0 ? ((row.fail / row.total) * 100).toFixed(1) + "%" : "0%";
-
-                    let tr = document.createElement("tr");
-                    tr.className = index % 2 === 0 ? "bg-gray-100" : "bg-white"; // Alternatif arka plan rengi
-
-                    tr.innerHTML = `
-                        <td class="border px-4 py-2 text-center">${row.hour}:00 - ${row.hour + 1}:00</td>
-                        <td class="border px-4 py-2 text-center text-green-600 font-semibold">${row.success}</td>
-                        <td class="border px-4 py-2 text-center text-red-600 font-semibold">${row.fail} <span class="text-gray-500 text-sm">(${failRate})</span></td>
-                        <td class="border px-4 py-2 text-center text-blue-600 font-semibold">${row.total}</td>
-                    `;
-                    tableBody.appendChild(tr);
-                });
-
-                // Toplam satırını güncelle
-                let totalFailRate = totalProduction > 0 ? ((totalFail / totalProduction) * 100).toFixed(1) + "%" : "0%";
-                totalRow.innerHTML = `
-                    <td class="border px-4 py-2 font-bold text-center bg-gray-300">Toplam</td>
-                    <td class="border px-4 py-2 font-bold text-green-700 text-center">${totalSuccess}</td>
-                    <td class="border px-4 py-2 font-bold text-red-600 text-center">${totalFail} <span class="text-gray-500 text-sm">(${totalFailRate})</span></td>
-                    <td class="border px-4 py-2 font-bold text-blue-700 text-center">${totalProduction}</td>
-                `;
-
-            } catch (error) {
-                console.error("Veri çekme hatası:", error);
-                alert("Veri alınırken hata oluştu!");
-            }
-        }
-    </script>
+    <title>Üretim Raporu</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+    <script defer src="/static/js/app.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
+<body class="bg-gray-100 p-6">
+    <h1 class="text-4xl font-bold text-center mb-6 uppercase">üretim takip</h1>
 
-<body class="bg-gray-100 p-10">
-    <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-lg">
-        <h2 class="text-2xl font-bold text-center mb-4 uppercase">üretim takip</h2>
-
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700">Başlangıç Tarihi:</label>
-            <input type="datetime-local" id="start_date" class="mt-1 p-2 w-full border rounded">
-        </div>
-
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700">Bitiş Tarihi:</label>
-            <input type="datetime-local" id="end_date" class="mt-1 p-2 w-full border rounded">
-        </div>
-
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700">Üretim Hattı:</label>
-            <input type="text" id="unit_name" placeholder="Örn: Final 1A" class="mt-1 p-2 w-full border rounded">
-        </div>
-
-        <button onclick="fetchData()" class="w-full bg-red-800 text-white p-2 rounded-lg hover:bg-red-700 uppercase font-bold">
-            göster
-        </button>
-
-        <h3 class="text-xl font-semibold mt-6 text-center">Saatlik Üretim Adetleri</h3>
-        <table class="w-full mt-4 border-collapse border border-gray-300">
-            <thead>
-                <tr class="bg-gray-200">
-                    <th class="border px-4 py-2 text-center">Saat Aralığı</th>
-                    <th class="border px-4 py-2 text-center">OK</th>
-                    <th class="border px-4 py-2 text-center">Tamir</th>
-                    <th class="border px-4 py-2 text-center">Toplam</th>
-                </tr>
-            </thead>
-            <tbody id="results_body"></tbody>
-            <tfoot>
-                <tr id="total_row" class="bg-gray-300 font-bold"></tr>
-            </tfoot>
-        </table>
+    <!-- Tarih-Saat Seçimi -->
+        <div class="flex justify-center gap-4 mb-6">
+        <input type="datetime-local" id="start-datetime" class="border p-2 rounded">
+        <input type="datetime-local" id="end-datetime" class="border p-2 rounded">
+        <button id="fetch-data-btn" class="bg-blue-500 text-white px-4 py-2 rounded uppercase hover:bg-blue-700">getir</button>
     </div>
-</body>
 
-</html>
+    <!-- Üretim Hatları -->
+    <div id="grid-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+
+</body>
+<</html>
