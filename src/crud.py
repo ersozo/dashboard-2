@@ -30,3 +30,6 @@ def fetch_production_data(db: Session):
         }
         for row in result
     ]
+
+
+
