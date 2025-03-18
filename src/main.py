@@ -133,7 +133,7 @@ async def send_production_data(websocket: WebSocket):
 
                 # 📌 JSON verisini WebSocket'e gönder
                 await websocket.send_text(json.dumps(grouped_data))
-                await asyncio.sleep(10)
+                await asyncio.sleep(30)
 
             except Exception as e:
                 logging.error(f"WebSocket veri gönderme hatası: {e}")

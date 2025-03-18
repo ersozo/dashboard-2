@@ -8,6 +8,6 @@ DATABASE_URL = (
 engine = create_engine(DATABASE_URL)
 
 with engine.connect() as connection:
-    result = connection.execute(text("SELECT * FROM production"))
+    result = connection.execute(text("SELECT * FROM dbo.ProductRecordLog"))
     rows = result.fetchall()
     print(f"Tablodan gelen veri: {rows}")
