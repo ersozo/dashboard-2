@@ -33,25 +33,5 @@ instance/
 *.sqlite3
 *.sqlite
 
-# Docker dosyaları (Eğer Docker kullanıyorsanız)
-docker-compose.override.yml
-.env.docker
 
-# Jupyter Notebook (Eğer kullanıyorsanız)
-.ipynb_checkpoints/
 
-# FastAPI statik ve medya dosyaları
-static/
-media/
-uploads/
-
-# Pytest ve test cache dosyaları
-.pytest_cache/
-.coverage
-htmlcov/
-
-# VS Code için özel ayarlar (isteğe bağlı)
-.settings/
-
-# MacOS sistem dosyaları
-.DS_Store
