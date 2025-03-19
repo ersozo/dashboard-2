@@ -7,7 +7,75 @@ DATABASE_URL = (
 
 engine = create_engine(DATABASE_URL)
 
-with engine.connect() as connection:
-    result = connection.execute(text("SELECT * FROM dbo.ProductRecordLog"))
-    rows = result.fetchall()
-    print(f"Tablodan gelen veri: {rows}")
+
+def inspect_tables():
+    with engine.connect() as connection:
+        result = connection.execute(
+            text(
+                "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'"
+            )
+        )
+        tables = result.fetchall()
+
+        print("Veritabanındaki tablolar:")
+        for schema, table in tables:
+            print(f"{schema}.{table}")
+
+
+def inspect_columns(table_name, schema="dbo"):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text(
+                "SELECT COLUMN_NAME, DATA_TYPE "
+                "FROM INFORMATION_SCHEMA.COLUMNS "
+                "WHERE TABLE_NAME = :table AND TABLE_SCHEMA = :schema"
+            ),
+            {"table": table_name, "schema": schema},  # SQL injection riskini önlüyoruz
+        )
+        columns = result.fetchall()
+
+        if not columns:
+            print(f"'{schema}.{table_name}' tablosu bulunamadı veya sütun bilgisi yok.")
+            return
+
+        print(f"{schema}.{table_name} tablosundaki sütunlar:")
+        for column_name, data_type in columns:
+            print(f"{column_name} ({data_type})")
+
+
+def inspect_values(table_name, schema="dbo"):
+    """Belirtilen tablodaki tüm verileri listeler."""
+    try:
+        with engine.connect() as connection:
+            # Önce tablonun gerçekten var olup olmadığını kontrol et
+            table_check = connection.execute(
+                text(
+                    "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES "
+                    "WHERE TABLE_NAME = :table AND TABLE_SCHEMA = :schema"
+                ),
+                {"table": table_name, "schema": schema},
+            ).fetchone()
+
+            if not table_check:
+                print(f"Hata: '{schema}.{table_name}' tablosu bulunamadı!")
+                return
+
+            # Tablodaki verileri çek
+            result = connection.execute(text(f"SELECT * FROM {schema}.{table_name}"))
+            rows = result.fetchall()
+
+            if not rows:
+                print(f"'{schema}.{table_name}' tablosunda veri bulunmuyor.")
+                return
+
+            print(f"{schema}.{table_name} tablosundaki veriler:")
+            for row in rows:
+                print(row)
+
+    except Exception as e:
+        print(f"Hata oluştu: {e}")
+
+
+inspect_tables()
+
+inspect_columns("ProductRecordLog")
