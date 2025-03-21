@@ -43,7 +43,7 @@ def inspect_columns(table_name, schema="dbo"):
             print(f"{column_name} ({data_type})")
 
 
-def inspect_values(table_name, schema="dbo"):
+def inspect_values(table_name, schema="dbo", columns="*", limit=5):
     """Belirtilen tablodaki tüm verileri listeler."""
     try:
         with engine.connect() as connection:
@@ -60,15 +60,21 @@ def inspect_values(table_name, schema="dbo"):
                 print(f"Hata: '{schema}.{table_name}' tablosu bulunamadı!")
                 return
 
-            # Tablodaki verileri çek
-            result = connection.execute(text(f"SELECT * FROM {schema}.{table_name}"))
+            # Sütunları belirtildiği gibi ayarla
+            column_str = ", ".join(columns) if isinstance(columns, list) else columns
+
+            # İlk 'limit' kadar verileri çek
+            query = text(
+                    f"SELECT TOP {limit} {column_str} FROM {schema}.{table_name}"
+                )
+            result = connection.execute(query)
             rows = result.fetchall()
 
             if not rows:
                 print(f"'{schema}.{table_name}' tablosunda veri bulunmuyor.")
                 return
 
-            print(f"{schema}.{table_name} tablosundaki veriler:")
+            print(f"{schema}.{table_name} tablosundaki ilk {limit} veri:")
             for row in rows:
                 print(row)
 
@@ -76,6 +82,7 @@ def inspect_values(table_name, schema="dbo"):
         print(f"Hata oluştu: {e}")
 
 
-inspect_tables()
-
-inspect_columns("ProductRecordLog")
+# inspect_tables()
+inspect_columns("ProductRecordLogModels")
+# inspect_values("ProductRecordLog")
+# inspect_values("ProductRecordLog", columns=["Model", "ModelSuresiSN"])
