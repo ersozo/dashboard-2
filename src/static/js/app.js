@@ -1,11 +1,62 @@
 Chart.register(ChartDataLabels);
 
+// ÜRETİM HATLARI SEÇİMİ DROPDOWN'U DOLDUR
+async function populateUnitSelect() {
+  let select = document.getElementById("unit-select");
+  select.innerHTML = '';
+  let response = await fetch("http://127.0.0.1:8000/unit-names");
+  let result = await response.json();
+  if (result.unit_names) {
+    result.unit_names.sort().forEach(unit => {
+      let option = document.createElement('option');
+      option.value = unit;
+      option.textContent = unit;
+      select.appendChild(option);
+    });
+  }
+}
+
 // TARİH/ZAMAN SEÇİMİ
 document.addEventListener("DOMContentLoaded", function () {
+  populateUnitSelect();
   document
     .getElementById("fetch-data-btn")
-    .addEventListener("click", fetchAllUnits);
+    .addEventListener("click", function () {
+      let startDatetime = document.getElementById("start-datetime").value;
+      let endDatetime = document.getElementById("end-datetime").value;
+      let select = document.getElementById("unit-select");
+      let selected = Array.from(select.selectedOptions).map(opt => opt.value);
 
+      if (!startDatetime || !endDatetime) {
+        alert("Lütfen başlangıç ve bitiş tarihlerini seçin!");
+        return;
+      }
+      if (selected.length === 0) {
+        alert("Lütfen en az bir ünite seçin!");
+        return;
+      }
+      let params = new URLSearchParams();
+      params.append('start', startDatetime);
+      params.append('end', endDatetime);
+      selected.forEach(unit => params.append('unit', unit));
+      window.location.href = `/static/results.html?${params.toString()}`;
+    });
+  document
+    .getElementById("select-all-btn")
+    .addEventListener("click", function () {
+      let select = document.getElementById("unit-select");
+      for (let i = 0; i < select.options.length; i++) {
+        select.options[i].selected = true;
+      }
+    });
+  document
+    .getElementById("clear-selection-btn")
+    .addEventListener("click", function () {
+      let select = document.getElementById("unit-select");
+      for (let i = 0; i < select.options.length; i++) {
+        select.options[i].selected = false;
+      }
+    });
   connectWebSocket();
 });
 
@@ -38,29 +89,26 @@ function connectWebSocket() {
   };
 }
 
-// API İLE ÜRETİM YERLERİNİ GETİRME
-async function fetchAllUnits() {
+// Seçili üniteleri getir (1 veya hepsi)
+async function fetchSelectedUnits() {
   let startDatetime = document.getElementById("start-datetime").value;
   let endDatetime = document.getElementById("end-datetime").value;
+  let select = document.getElementById("unit-select");
+  let selected = Array.from(select.selectedOptions).map(opt => opt.value);
 
   if (!startDatetime || !endDatetime) {
     alert("Lütfen başlangıç ve bitiş tarihlerini seçin!");
     return;
   }
-
-  let response = await fetch("http://127.0.0.1:8000/unit-names");
-  let result = await response.json();
-  if (result.error) {
-    alert(result.error);
+  if (selected.length === 0) {
+    alert("Lütfen en az bir ünite seçin!");
     return;
   }
 
   let container = document.getElementById("grid-container");
   container.innerHTML = "";
 
-  result.unit_names
-    .sort()
-    .forEach((unit) => createUnitCard(unit, startDatetime, endDatetime));
+  selected.forEach(unit => createUnitCard(unit, startDatetime, endDatetime));
 }
 
 // HTML OLUŞTURMA
@@ -211,44 +259,44 @@ function renderChart(unitName) {
     totalFail += row.fail || 0;
   });
 
-charts[chartId] = new Chart(ctx, {
-  type: "pie",
-  data: {
-    labels: ["OK", "Tamir"],
-    datasets: [
-      {
-        data: [totalSuccess, totalFail],
-        backgroundColor: ["#4CAF50", "#F44336"],
-      },
-    ],
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: "top",
-      },
-      tooltip: {
-        enabled: true,
-      },
-      datalabels: {
-        color: "#fff",
-        font: {
-          weight: "bold",
-          size: 16,
+  charts[chartId] = new Chart(ctx, {
+    type: "pie",
+    data: {
+      labels: ["OK", "Tamir"],
+      datasets: [
+        {
+          data: [totalSuccess, totalFail],
+          backgroundColor: ["#4CAF50", "#F44336"],
         },
-        anchor: "end", // Label pozisyonu
-        align: "start",
-        offset: 10,
-        formatter: (value, ctx) => {
-          let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
-          let percentage = ((value / sum) * 100).toFixed(1) + "%";
-          return `${value} (${percentage})`; // 10 (25.0%) şeklinde gösterim
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "top",
+        },
+        tooltip: {
+          enabled: true,
+        },
+        datalabels: {
+          color: "#fff",
+          font: {
+            weight: "bold",
+            size: 16,
+          },
+          anchor: "end", // Label pozisyonu
+          align: "start",
+          offset: 10,
+          formatter: (value, ctx) => {
+            let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+            let percentage = ((value / sum) * 100).toFixed(1) + "%";
+            return `${value} (${percentage})`; // 10 (25.0%) şeklinde gösterim
+          },
         },
       },
     },
-  },
-  plugins: [ChartDataLabels], // Burada eklendiğinden emin ol
-});
+    plugins: [ChartDataLabels], // Burada eklendiğinden emin ol
+  });
 }

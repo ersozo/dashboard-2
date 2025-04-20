@@ -12,11 +12,22 @@
     <h1 class="text-4xl font-bold text-center mb-6 uppercase">üretim takip</h1>
     <div id="production-data"></div> 
     
-    <!-- Tarih-Saat Seçimi -->
-    <div class="flex justify-center gap-4 mb-6">
-        <input type="datetime-local" id="start-datetime" class="border p-2 rounded">
-        <input type="datetime-local" id="end-datetime" class="border p-2 rounded">
-        <button id="fetch-data-btn" class="bg-blue-500 text-white px-4 py-2 rounded uppercase hover:bg-blue-700">getir</button>
+    <!-- Seçim Alanı -->
+    <div class="flex flex-col items-center gap-4 mb-6 w-full max-w-lg mx-auto">
+        <div class="flex flex-row gap-4 w-full">
+            <input type="datetime-local" id="start-datetime" class="border p-2 rounded flex-1">
+            <input type="datetime-local" id="end-datetime" class="border p-2 rounded flex-1">
+        </div>
+        <div class="w-full">
+            <select id="unit-select" multiple size="4" class="border p-2 rounded w-full"></select>
+        </div>
+        <div class="flex flex-row gap-4 w-full">
+            <button id="select-all-btn" type="button" class="bg-gray-400 text-white px-3 py-2 rounded uppercase hover:bg-gray-600 flex-1">Tümünü Seç</button>
+            <button id="clear-selection-btn" type="button" class="bg-gray-300 text-gray-800 px-3 py-2 rounded uppercase hover:bg-gray-500 flex-1">Seçimi Temizle</button>
+        </div>
+        <div class="w-full">
+            <button id="fetch-data-btn" class="bg-blue-500 text-white px-4 py-2 rounded uppercase hover:bg-blue-700 w-full">Sonuçları Göster</button>
+        </div>
     </div>
     
     <!-- Üretim Hatları -->
