@@ -18,22 +18,25 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Tüm origin'lere izin ver
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Templates ve Static dosyaları bağla
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/")
 def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/results")
+def results_page(request: Request):
+    return templates.TemplateResponse("results.html", {"request": request})
 
 
 @app.get("/production", response_model=list[schemas.ProductionDataResponse])
@@ -57,50 +60,81 @@ def get_unit_names(db: Session = Depends(get_db)):
 def get_hourly_production(
     start_date: str = Query(..., description="Başlangıç tarihi"),
     end_date: str = Query(..., description="Bitiş tarihi"),
-    unit_name: str = Query(..., description="Üretim hattı adı"),
+    unit_name: list[str] = Query(..., description="Üretim hattı adı"),
     db: Session = Depends(get_db),
 ):
     try:
         start_date = start_date.replace("T", " ")
         end_date = end_date.replace("T", " ")
 
-        query = text("""
-            SELECT 
-                DATEPART(HOUR, KayitTarihi) AS Hour,
-                COUNT(*) AS TotalCount,
-                SUM(CASE WHEN TestSonucu = 1 THEN 1 ELSE 0 END) AS SuccessCount,
-                SUM(CASE WHEN TestSonucu = 0 THEN 1 ELSE 0 END) AS FailCount
-            FROM dbo.ProductRecordLog
-            WHERE KayitTarihi BETWEEN :start_date AND :end_date AND UnitName = :unit_name
-            GROUP BY DATEPART(HOUR, KayitTarihi)
-            ORDER BY Hour
-        """)
-        result = db.execute(
-            query,
-            {"start_date": start_date, "end_date": end_date, "unit_name": unit_name},
-        ).fetchall()
-        data = [
-            {"hour": row[0], "total": row[1], "success": row[2], "fail": row[3]}
-            for row in result
-        ]
-        return {"data": data}
+        if isinstance(unit_name, list) and len(unit_name) == 1:
+            unit_name = unit_name[0]
+            query = text("""
+                SELECT 
+                    DATEPART(HOUR, KayitTarihi) AS Hour,
+                    COUNT(*) AS TotalCount,
+                    SUM(CASE WHEN TestSonucu = 1 THEN 1 ELSE 0 END) AS SuccessCount,
+                    SUM(CASE WHEN TestSonucu = 0 THEN 1 ELSE 0 END) AS FailCount
+                FROM dbo.ProductRecordLog
+                WHERE KayitTarihi BETWEEN :start_date AND :end_date AND UnitName = :unit_name
+                GROUP BY DATEPART(HOUR, KayitTarihi)
+                ORDER BY Hour
+            """)
+            result = db.execute(
+                query,
+                {
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "unit_name": unit_name,
+                },
+            ).fetchall()
+            data = [
+                {"hour": row[0], "total": row[1], "success": row[2], "fail": row[3]}
+                for row in result
+            ]
+            return {"data": data}
+        else:
+            all_data = {}
+            for unit in unit_name:
+                query = text("""
+                    SELECT 
+                        DATEPART(HOUR, KayitTarihi) AS Hour,
+                        COUNT(*) AS TotalCount,
+                        SUM(CASE WHEN TestSonucu = 1 THEN 1 ELSE 0 END) AS SuccessCount,
+                        SUM(CASE WHEN TestSonucu = 0 THEN 1 ELSE 0 END) AS FailCount
+                    FROM dbo.ProductRecordLog
+                    WHERE KayitTarihi BETWEEN :start_date AND :end_date AND UnitName = :unit_name
+                    GROUP BY DATEPART(HOUR, KayitTarihi)
+                    ORDER BY Hour
+                """)
+                result = db.execute(
+                    query,
+                    {"start_date": start_date, "end_date": end_date, "unit_name": unit},
+                ).fetchall()
+                unit_data = [
+                    {"hour": row[0], "total": row[1], "success": row[2], "fail": row[3]}
+                    for row in result
+                ]
+                all_data[unit] = unit_data
+
+            return {"data": all_data}
     except Exception as e:
         logging.error(f"Hata oluştu: {e}")
         return {"error": "Bir hata oluştu, lütfen logları kontrol edin."}
 
 
-# ✅ WebSocket bağlantılarını takip eden liste
+# Aktif WebSocket'ler listesi
 active_websockets = set()
 
 
 async def send_production_data(websocket: WebSocket):
-    db = next(get_db())  # 📌 Yeni bir veritabanı oturumu aç
-    active_websockets.add(websocket)  # 📌 Bağlantıyı aktif listeye ekle
     await websocket.accept()
-    logging.info(f"🔗 Yeni WebSocket bağlantısı: {websocket.client}")
+    active_websockets.add(websocket)
+    logging.info(f"Yeni WebSocket bağlantısı: {websocket.client}")
 
     try:
         while True:
+            db = next(get_db())
             try:
                 query = text("""
                     SELECT 
@@ -115,8 +149,6 @@ async def send_production_data(websocket: WebSocket):
                     ORDER BY UnitName, Hour
                 """)
                 result = db.execute(query).fetchall()
-
-                # 📌 Verileri unitName bazında gruplama
                 grouped_data = {}
                 for row in result:
                     unit_name = row[0]
@@ -126,26 +158,34 @@ async def send_production_data(websocket: WebSocket):
                         "success": row[3],
                         "fail": row[4],
                     }
-
                     if unit_name not in grouped_data:
                         grouped_data[unit_name] = []
                     grouped_data[unit_name].append(entry)
 
-                # 📌 JSON verisini WebSocket'e gönder
-                await websocket.send_text(json.dumps(grouped_data))
+                try:
+                    await websocket.send_text(json.dumps(grouped_data))
+                except RuntimeError as e:
+                    logging.error(f"WebSocket gönderme hatası: {e}")
+                    break
+
                 await asyncio.sleep(30)
 
             except Exception as e:
                 logging.error(f"WebSocket veri gönderme hatası: {e}")
-                await websocket.send_text(json.dumps({"error": "Veri çekme hatası"}))
+                try:
+                    await websocket.send_text(
+                        json.dumps({"error": "Veri çekme hatası"})
+                    )
+                except:
+                    pass
                 break
+            finally:
+                db.close()
 
     except WebSocketDisconnect:
-        active_websockets.remove(websocket)
-        logging.info(f"❌ WebSocket bağlantısı kapandı: {websocket.client}")
-
+        logging.info(f"WebSocket bağlantısı kesildi: {websocket.client}")
     finally:
-        db.close()  # 📌 Bağlantıyı kapat
+        active_websockets.discard(websocket)
 
 
 @app.websocket("/ws/production")

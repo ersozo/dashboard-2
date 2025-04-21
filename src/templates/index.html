@@ -19,7 +19,10 @@
             <input type="datetime-local" id="end-datetime" class="border p-2 rounded flex-1">
         </div>
         <div class="w-full">
-            <select id="unit-select" multiple size="4" class="border p-2 rounded w-full"></select>
+            <div class="p-3 border rounded bg-white max-h-60 overflow-y-auto">
+                <div class="mb-2 font-bold">Üretim Hatları:</div>
+                <div id="unit-checkboxes" class="grid grid-cols-2 gap-2"></div>
+            </div>
         </div>
         <div class="flex flex-row gap-4 w-full">
             <button id="select-all-btn" type="button" class="bg-gray-400 text-white px-3 py-2 rounded uppercase hover:bg-gray-600 flex-1">Tümünü Seç</button>
@@ -29,10 +32,11 @@
             <button id="fetch-data-btn" class="bg-blue-500 text-white px-4 py-2 rounded uppercase hover:bg-blue-700 w-full">Sonuçları Göster</button>
         </div>
     </div>
-    
-    <!-- Üretim Hatları -->
-    <div id="grid-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-    
+
+    <!-- Üretim Hatları 
+        <div id="grid-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    -->
+
     <script defer src="/static/js/app.js"></script>
 </body>
 </html>

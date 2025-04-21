@@ -1,7 +1,48 @@
-// results.js: Sadece sonuçları göstermek için
+// Sonuçları göstermek için
 // URL parametrelerinden seçimleri al ve verileri getir
 
 Chart.register(ChartDataLabels);
+
+
+// WEBSOCKET AÇMA İŞLEMLERİ
+let ws;
+let charts = {}; // Grafikleri takip etmek için
+let unitDataStore = {}; // Tüm üretim verilerini saklayacağız
+
+function connectWebSocket() {
+  ws = new WebSocket("ws://127.0.0.1:8000/ws/production");
+
+  ws.onopen = () => console.log("✅ WebSocket bağlantısı açıldı.");
+
+  ws.onmessage = (event) => {
+    try {
+      let receivedData = JSON.parse(event.data);
+      console.log("📩 Gelen WebSocket verisi:", receivedData);
+
+      // Store the received data in the unitDataStore
+      Object.entries(receivedData).forEach(([unitName, data]) => {
+        unitDataStore[unitName] = data;
+
+        // Only update the UI if this unit is currently displayed
+        const tableElement = document.getElementById(`table-${unitName}`);
+        if (tableElement) {
+          updateExistingTables(unitName, data);
+        }
+      });
+    } catch (error) {
+      console.error("❌ WebSocket verisi işlenirken hata:", error);
+    }
+  };
+
+  ws.onclose = (event) => {
+    console.warn(`⚠️ WebSocket bağlantısı kapandı: ${event.reason}`);
+    setTimeout(connectWebSocket, 3000);
+  };
+}
+
+connectWebSocket();
+
+
 
 function getQueryParams() {
   const params = {};
@@ -14,14 +55,31 @@ function getQueryParams() {
 
 async function fetchAndShowResults() {
   const params = getQueryParams();
-  const units = params.unit || [];
-  const start = params.start ? params.start[0] : null;
-  const end = params.end ? params.end[0] : null;
+  const units = params.unit_name || [];
+  const start = params.start_date ? params.start_date[0] : null;
+  const end = params.end_date ? params.end_date[0] : null;
   if (!units.length || !start || !end) {
     document.getElementById('grid-container').innerHTML = '<div class="text-red-600">Eksik parametre!</div>';
     return;
   }
+
+  // Clear the grid container
   document.getElementById('grid-container').innerHTML = '';
+
+  // Set the appropriate grid layout based on number of units
+  const gridContainer = document.getElementById('grid-container');
+  if (units.length === 1) {
+    // Full width for single unit
+    gridContainer.className = 'grid grid-cols-1 gap-6';
+  } else if (units.length % 2 === 0 && units.length <= 10) {
+    // For even numbers of units (2, 4, 6, 8, 10), use 2 columns
+    gridContainer.className = 'grid grid-cols-2 gap-6';
+  } else {
+    // Default responsive behavior for other cases
+    gridContainer.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
+  }
+
+  // Create unit cards
   units.forEach(unit => createUnitCard(unit, start, end));
 }
 
@@ -29,8 +87,12 @@ function createUnitCard(unit, startDateTime, endDateTime) {
   let container = document.getElementById("grid-container");
   let div = document.createElement("div");
   div.className = "bg-white p-4 rounded-lg shadow-lg";
+
+  // Remove '+' characters from the unit name for display
+  const displayUnitName = unit.replace(/\+/g, '');
+
   div.innerHTML = `
-      <h2 class="text-lg font-bold">${unit}</h2>
+      <h2 class="text-lg font-bold">${displayUnitName}</h2>
       <div class="w-64 h-64 mx-auto">
         <canvas id="chart-${unit}" width="256" height="256"></canvas>
       </div>
@@ -48,20 +110,42 @@ function createUnitCard(unit, startDateTime, endDateTime) {
       </table>
     `;
   container.appendChild(div);
-  fetchUnitData(unit, startDateTime, endDateTime);
+
+  // Check if we already have real-time data for this unit from websocket
+  if (unitDataStore[unit] && unitDataStore[unit].length > 0) {
+    updateExistingTables(unit, unitDataStore[unit]);
+  } else {
+    // If not, fetch initial data from API
+    fetchUnitData(unit, startDateTime, endDateTime);
+  }
 }
 
 async function fetchUnitData(unitName, startDateTime, endDateTime) {
-  let apiUrl = `http://127.0.0.1:8000/hourly-production?start_date=${startDateTime}&end_date=${endDateTime}&unit_name=${unitName}`;
-  let response = await fetch(apiUrl);
-  let result = await response.json();
-  if (!result.error) {
-    updateExistingTables(unitName, result.data);
+  try {
+    let apiUrl = `http://127.0.0.1:8000/hourly-production?start_date=${startDateTime}&end_date=${endDateTime}&unit_name=${unitName}`;
+    let response = await fetch(apiUrl);
+    let result = await response.json();
+    if (!result.error) {
+      // Check if data is in the new format (object with unit names as keys) or old format (array)
+      if (result.data && typeof result.data === 'object' && !Array.isArray(result.data)) {
+        // New format - multiple units selected
+        const unitData = result.data[unitName];
+        if (unitData) {
+          updateExistingTables(unitName, unitData);
+        }
+      } else {
+        // Old format - single unit
+        updateExistingTables(unitName, result.data);
+      }
+    }
+  } catch (error) {
+    console.error(`Error fetching data for ${unitName}:`, error);
   }
 }
 
 function updateExistingTables(unitName, data) {
   if (!data || !Array.isArray(data)) return;
+  console.log(`Updating tables for ${unitName} with data:`, data);
   renderTable(unitName, data);
   renderChart(unitName, data);
 }
@@ -148,3 +232,10 @@ function renderChart(unitName, data) {
 }
 
 document.addEventListener("DOMContentLoaded", fetchAndShowResults);
+
+// Fetch and update data every 30 seconds
+setInterval(() => {
+  const params = getQueryParams();
+  const units = params.unit_name || [];
+  units.forEach(unit => fetchUnitData(unit, params.start_date[0], params.end_date[0]));
+}, 30000);
