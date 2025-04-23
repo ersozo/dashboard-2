@@ -42,10 +42,62 @@ async function populateUnitCheckboxes() {
 }
 
 // TARİH/ZAMAN SEÇİMİ
+
 document.addEventListener("DOMContentLoaded", function () {
   populateUnitCheckboxes();
   console.log("DOM yüklendi");
-  
+
+  // Zaman dilimi checkboxları
+  const timePeriods = {
+    "08:00-16:00": { start: "08:00", end: "16:00" },
+    "16:00-24:00": { start: "16:00", end: "24:00" },
+    "24:00-08:00": { start: "00:00", end: "08:00", overnight: true },
+    "08:00-20:00": { start: "08:00", end: "20:00" },
+    "20:00-08:00": { start: "20:00", end: "08:00", overnight: true }
+  };
+
+  function setDateTimeForPeriod(period) {
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+    let start, end;
+    if (timePeriods[period].overnight) {
+      // Overnight period: end time is next day if end < start
+      start = `${todayStr}T${timePeriods[period].start}`;
+      let endDate = new Date(now);
+      if (timePeriods[period].end < timePeriods[period].start) {
+        endDate.setDate(endDate.getDate() + 1);
+      }
+      const endDayStr = endDate.toISOString().slice(0, 10);
+      end = `${endDayStr}T${timePeriods[period].end}`;
+    } else {
+      start = `${todayStr}T${timePeriods[period].start}`;
+      end = `${todayStr}T${timePeriods[period].end}`;
+    }
+    return { start, end };
+  }
+
+  const timePeriodCheckboxes = document.querySelectorAll('.time-period-checkbox');
+  timePeriodCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', function () {
+      // If checked, set the date fields to this period (if multiple checked, use the last one checked)
+      if (checkbox.checked) {
+        const period = checkbox.value;
+        const { start, end } = setDateTimeForPeriod(period);
+        document.getElementById("start-datetime").value = start;
+        document.getElementById("end-datetime").value = end;
+        // Uncheck all other checkboxes to enforce single selection
+        timePeriodCheckboxes.forEach(cb => { if (cb !== checkbox) cb.checked = false; });
+      } else {
+        // If unchecked, clear the date fields only if no other period is selected
+        const anyChecked = Array.from(timePeriodCheckboxes).some(cb => cb.checked);
+        if (!anyChecked) {
+          document.getElementById("start-datetime").value = "";
+          document.getElementById("end-datetime").value = "";
+        }
+      }
+    });
+  });
+
   // Sonuçları göster butonu
   document.getElementById("fetch-data-btn").addEventListener("click", function () {
     let startDatetime = document.getElementById("start-datetime").value;
@@ -57,10 +109,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (!startDatetime || !endDatetime) {
       alert("Lütfen başlangıç ve bitiş tarihlerini seçin!");
-      return;
-    }
-    if (selected.length === 0) {
-      alert("Lütfen en az bir ünite seçin!");
       return;
     }
     
