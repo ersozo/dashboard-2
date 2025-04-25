@@ -108,7 +108,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // If no time period is selected, automatically select the appropriate one based on current time
     if (!startDatetime || !endDatetime) {
       // Get current time
-      const now = new Date('2025-04-25T13:19:50+03:00'); // Using provided current time
+      const now = new Date(); // Use the actual current time
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
       
