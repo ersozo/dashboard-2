@@ -50,7 +50,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Zaman dilimi checkboxları
   const timePeriods = {
     "08:00-16:00": { start: "08:00", end: "16:00" },
-    "16:00-24:00": { start: "16:00", end: "24:00" },
+    "16:00-24:00": { start: "16:00", end: "00:00", overnight: true },
     "24:00-08:00": { start: "00:00", end: "08:00", overnight: true },
     "08:00-20:00": { start: "08:00", end: "20:00" },
     "20:00-08:00": { start: "20:00", end: "08:00", overnight: true }
@@ -61,12 +61,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
     let start, end;
     if (timePeriods[period].overnight) {
-      // Overnight period: end time is next day if end < start
+      // Overnight period: end time is next day
       start = `${todayStr}T${timePeriods[period].start}`;
       let endDate = new Date(now);
-      if (timePeriods[period].end < timePeriods[period].start) {
-        endDate.setDate(endDate.getDate() + 1);
-      }
+      endDate.setDate(endDate.getDate() + 1); // Always set to next day for overnight periods
       const endDayStr = endDate.toISOString().slice(0, 10);
       end = `${endDayStr}T${timePeriods[period].end}`;
     } else {
