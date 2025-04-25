@@ -105,9 +105,67 @@ document.addEventListener("DOMContentLoaded", function () {
     let checkboxes = document.querySelectorAll('.unit-checkbox:checked');
     let selected = Array.from(checkboxes).map(cb => cb.value);
 
+    // If no time period is selected, automatically select the appropriate one based on current time
     if (!startDatetime || !endDatetime) {
-      alert("Lütfen başlangıç ve bitiş tarihlerini seçin!");
-      return;
+      // Get current time
+      const now = new Date('2025-04-25T13:19:50+03:00'); // Using provided current time
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      
+      // Convert current time to decimal for easier comparison
+      const currentTimeDecimal = currentHour + (currentMinute / 60);
+      
+      // Find which time period the current time falls into
+      let selectedPeriod = null;
+      
+      for (const [period, timeRange] of Object.entries(timePeriods)) {
+        const startHour = parseInt(timeRange.start.split(':')[0]);
+        const startMinute = parseInt(timeRange.start.split(':')[1]);
+        const endHour = parseInt(timeRange.end.split(':')[0]);
+        const endMinute = parseInt(timeRange.end.split(':')[1]);
+        
+        const startTimeDecimal = startHour + (startMinute / 60);
+        const endTimeDecimal = endHour + (endMinute / 60);
+        
+        if (timeRange.overnight) {
+          // For overnight periods (ending next day)
+          if ((currentTimeDecimal >= startTimeDecimal) || (currentTimeDecimal <= endTimeDecimal)) {
+            selectedPeriod = period;
+            break;
+          }
+        } else {
+          // For same-day periods
+          if (currentTimeDecimal >= startTimeDecimal && currentTimeDecimal <= endTimeDecimal) {
+            selectedPeriod = period;
+            break;
+          }
+        }
+      }
+      
+      // If a matching period is found, set the date/time fields
+      if (selectedPeriod) {
+        const { start, end } = setDateTimeForPeriod(selectedPeriod);
+        startDatetime = start;
+        endDatetime = end;
+        document.getElementById("start-datetime").value = start;
+        document.getElementById("end-datetime").value = end;
+        
+        // Also check the corresponding checkbox
+        const periodCheckbox = document.querySelector(`.time-period-checkbox[value="${selectedPeriod}"]`);
+        if (periodCheckbox) {
+          periodCheckbox.checked = true;
+          
+          // Uncheck all other period checkboxes
+          document.querySelectorAll('.time-period-checkbox').forEach(cb => {
+            if (cb !== periodCheckbox) cb.checked = false;
+          });
+        }
+        
+        console.log(`Automatically selected time period: ${selectedPeriod}`);
+      } else {
+        alert("Lütfen başlangıç ve bitiş tarihlerini seçin!");
+        return;
+      }
     }
     
     let params = new URLSearchParams();
