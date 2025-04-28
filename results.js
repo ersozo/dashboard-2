@@ -94,35 +94,27 @@ function createUnitCard(unit, startDateTime, endDateTime) {
   const displayUnitName = unit.replace(/\+/g, '');
 
   div.innerHTML = `
-      <h1 class="text-lg font-bold mb-4">${displayUnitName}</h1>
-      <div class="flex flex-col md:flex-row gap-4 mb-4">
-        <div class="w-full md:w-1/2 flex items-center">
-          <table class="w-full border-collapse border text-2xl" id="summary-table-${unit}">
-            <thead>
-              <tr class="bg-gray-200 text-center">
-                <th class="border px-4 py-2">OK</th>
-                <th class="border px-4 py-2">Tamir</th>
-                <th class="border px-4 py-2">Toplam</th>
-                <th class="border px-4 py-2">FPR (%)</th>
-              </tr>
-            </thead>
+      <h2 class="text-lg font-bold">${displayUnitName}</h2>
+      <div class="flex flex-wrap mt-2">
+        <div class="w-1/2">
+          <div class="w-64 h-64 mx-auto">
+            <canvas id="chart-${unit}" width="256" height="256"></canvas>
+          </div>
+        </div>
+        <div class="w-1/2">
+          <table class="w-full border-collapse border mt-2" id="summary-table-${unit}">
             <tbody>
               <tr>
-                <td class="border px-4 py-3 text-green-600 font-bold text-center text-2xl" id="total-success-${unit}">0</td>
-                <td class="border px-4 py-3 text-red-600 font-bold text-center text-2xl" id="total-fail-${unit}">0</td>
-                <td class="border px-4 py-3 text-blue-600 font-bold text-center text-2xl" id="total-production-${unit}">0</td>
-                <td class="border px-4 py-3 font-bold text-center text-2xl" id="total-fail-rate-${unit}">0.00%</td>
+                <td class="border px-4 py-2 text-green-600 text-center" id="total-success-${unit}">0</td>
+                <td class="border px-4 py-2 text-red-600 text-center" id="total-fail-${unit}">0</td>
+                <td class="border px-4 py-2 text-blue-600 text-center" id="total-production-${unit}">0</td>
+                <td class="border px-4 py-2 text-center" id="total-fail-rate-${unit}">0.00%</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="w-full md:w-1/2">
-          <div class="w-full h-64 mx-auto">
-            <canvas id="chart-${unit}" width="256" height="256"></canvas>
-          </div>
-        </div>
       </div>
-      <table class="w-full border-collapse border">
+      <table class="w-full border-collapse border mt-4">
         <thead>
           <tr class="bg-gray-200 text-center">
             <th class="border px-4 py-2">Saat</th>
