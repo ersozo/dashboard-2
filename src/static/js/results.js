@@ -93,49 +93,59 @@ function createUnitCard(unit, startDateTime, endDateTime) {
   // Remove '+' characters from the unit name for display
   const displayUnitName = unit.replace(/\+/g, '');
 
+  // Create current time string in HH:MM format
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const currentTime = `${hours}:${minutes}`;
+
   div.innerHTML = `
-      <h2 class="text-4xl font-bold mb-4">${displayUnitName}</h2>
+      <h2 class="text-6xl font-bold mb-4 text-center">${displayUnitName}</h2>
       <div class="flex flex-col md:flex-row gap-4 mb-4">
-        <div class="w-full md:w-1/2 flex items-center">
+        <div class="w-full md:w-1/4 flex items-center justify-center">
+          <div class="text-8xl font-bold" id="current-time-${unit}">${currentTime}</div>
+        </div>
+        <div class="w-full md:w-3/4 flex items-center">
           <table class="w-full border-collapse border text-3xl" id="summary-table-${unit}">
             <thead>
               <tr class="bg-gray-200 text-center">
-                <th class="border px-4 py-2">OK</th>
-                <th class="border px-4 py-2">Tamir</th>
-                <th class="border px-4 py-2">Toplam</th>
+                <th class="border px-4 py-2">Toplam Üretim</th>
                 <th class="border px-4 py-2">FPR (%)</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td class="border px-4 py-3 text-green-600 font-bold text-center text-3xl" id="total-success-${unit}">0</td>
-                <td class="border px-4 py-3 text-red-600 font-bold text-center text-3xl" id="total-fail-${unit}">0</td>
-                <td class="border px-4 py-3 text-blue-600 font-bold text-center text-3xl" id="total-production-${unit}">0</td>
-                <td class="border px-4 py-3 font-bold text-center text-3xl" id="total-fail-rate-${unit}">0.00%</td>
+                <td class="border px-4 py-3 text-black font-bold text-center text-7xl" id="total-success-${unit}">0</td>
+                <td class="border px-4 py-3 font-bold text-center text-7xl" id="total-fail-rate-${unit}">0.00%</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="w-full md:w-1/2">
-          <div class="w-full h-64 mx-auto">
-            <canvas id="chart-${unit}" width="256" height="256"></canvas>
-          </div>
-        </div>
       </div>
-      <table class="w-full border-collapse border">
+      <table class="w-full border-collapse border text-3xl">
         <thead>
           <tr class="bg-gray-200 text-center">
             <th class="border px-4 py-2">Saat</th>
-            <th class="border px-4 py-2">OK</th>
+            <th class="border px-4 py-2">Üretim</th>
             <th class="border px-4 py-2">Tamir</th>
-            <th class="border px-4 py-2">Toplam</th>
-            <th class="border px-4 py-2">Tamir Oranı (%)</th>
+            <th class="border px-4 py-2">FPR (%)</th>
           </tr>
         </thead>
         <tbody id="table-${unit}"></tbody>
       </table>
     `;
   container.appendChild(div);
+
+  // Update time every minute
+  setInterval(() => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const timeElement = document.getElementById(`current-time-${unit}`);
+    if (timeElement) {
+      timeElement.textContent = `${hours}:${minutes}`;
+    }
+  }, 60000);
 
   // Check if we already have real-time data for this unit from websocket
   if (unitDataStore[unit] && unitDataStore[unit].length > 0) {
@@ -173,7 +183,7 @@ function updateExistingTables(unitName, data) {
   if (!data || !Array.isArray(data)) return;
   console.log(`Updating tables for ${unitName} with data:`, data);
   renderTable(unitName, data);
-  renderChart(unitName, data);
+  // Chart rendering removed as requested
 }
 
 function renderTable(unitName, data) {
@@ -184,86 +194,43 @@ function renderTable(unitName, data) {
     totalFail = 0,
     totalProduction = 0;
   data.forEach((row) => {
-    let failRate = row.total > 0 ? ((row.fail / row.total) * 100).toFixed(2) : "0.00";
+    let failRate = row.total > 0 ? ((row.fail / row.total) * 100).toFixed(1) : "0.0";
     tableBody.innerHTML += `
       <tr>
-        <td class="border px-4 py-2">${row.hour}:00 - ${row.hour + 1}:00</td>
-        <td class="border px-4 py-2 text-green-600 text-center">${row.success}</td>
-        <td class="border px-4 py-2 text-red-600 text-center">${row.fail}</td>
-        <td class="border px-4 py-2 text-blue-600 text-center">${row.total}</td>
-        <td class="border px-4 py-2 text-center">${failRate}%</td>
+        <td class="border px-4 py-2 text-center text-5xl">${row.hour}:00 - ${
+      row.hour + 1
+    }:00</td>
+        <td class="border px-4 py-2 text-black text-center text-5xl">${
+          row.success
+        }</td>
+        <td class="border px-4 py-2 text-red-800 text-center text-5xl">${
+          row.fail
+        }</td>
+        <td class="border px-4 py-2 text-center text-5xl">${100 - failRate}</td>
       </tr>
     `;
     totalSuccess += row.success;
     totalFail += row.fail;
-    totalProduction += row.total;
+    // totalProduction += row.total;
   });
-  let overallFailRate = totalProduction > 0 ? ((totalFail / totalProduction) * 100).toFixed(2) : "0.00";
-  
-  // Update the summary table
-  document.getElementById(`total-success-${unitName}`).textContent = totalSuccess;
-  document.getElementById(`total-fail-${unitName}`).textContent = totalFail;
-  document.getElementById(`total-production-${unitName}`).textContent = totalProduction;
-  document.getElementById(`total-fail-rate-${unitName}`).textContent = `${overallFailRate}%`;
-  
-  // Add the total row to the main table
-  tableBody.innerHTML += `
-    <tr class="bg-gray-300 font-bold">
-      <td class="border px-4 py-2">TOPLAM</td>
-      <td class="border px-4 py-2 text-green-600 text-center">${totalSuccess}</td>
-      <td class="border px-4 py-2 text-red-600 text-center">${totalFail}</td>
-      <td class="border px-4 py-2 text-blue-600 text-center">${totalProduction}</td>
-      <td class="border px-4 py-2 text-center">${overallFailRate}%</td>
-    </tr>
-  `;
-}
+  let overallFailRate = totalSuccess > 0 ? ((totalFail / totalSuccess) * 100).toFixed(1) : "0.0";
 
-function renderChart(unitName, data) {
-  let chartId = `chart-${unitName}`;
-  let canvas = document.getElementById(chartId);
-  if (!canvas) return;
-  let ctx = canvas.getContext("2d");
-  let totalSuccess = 0, totalFail = 0;
-  data.forEach((row) => {
-    totalSuccess += row.success || 0;
-    totalFail += row.fail || 0;
-  });
-  if (!window.charts) window.charts = {};
-  if (charts[chartId]) charts[chartId].destroy();
-  charts[chartId] = new Chart(ctx, {
-    type: "pie",
-    data: {
-      labels: ["OK", "Tamir"],
-      datasets: [
-        {
-          data: [totalSuccess, totalFail],
-          backgroundColor: ["#4CAF50", "#F44336"],
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: "top" },
-        tooltip: { enabled: true },
-        datalabels: {
-          color: "#000",
-          font: { weight: "bold", size: 30 },
-          anchor: "end",
-          align: "start",
-          offset: 10,
-          formatter: (value, ctx) => {
-            let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
-            let percentage = ((value / sum) * 100).toFixed(1) + "%";
-            // return `${value} (${percentage})`;
-            return `${percentage}`;
-          },
-        },
-      },
-    },
-    plugins: [ChartDataLabels],
-  });
+  // Update the summary table - only updating what's visible in the new layout
+  document.getElementById(`total-success-${unitName}`).textContent = totalSuccess;
+  // Still calculate total-fail but don't display it in the table
+  // document.getElementById(`total-fail-${unitName}`).textContent = totalFail;
+  document.getElementById(`total-fail-rate-${unitName}`).textContent = `${100 - overallFailRate}`;
+
+  // // Add the total row to the main table
+  // tableBody.innerHTML += `
+  //   <tr class="bg-gray-300 font-bold">
+  //     <td class="border px-4 py-2">TOPLAM</td>
+  //     <td class="border px-4 py-2 text-green-600 text-center">${totalSuccess}</td>
+  //     <td class="border px-4 py-2 text-red-600 text-center">${totalFail}</td>
+  //     <td class="border px-4 py-2 text-blue-600 text-center">${totalProduction}</td>
+  //     <td class="border px-4 py-2 text-center">${overallFailRate}%</td>
+  //   </tr>
+  // `;
 }
 
 document.addEventListener("DOMContentLoaded", fetchAndShowResults);
