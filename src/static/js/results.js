@@ -106,10 +106,10 @@ function createUnitCard(unit, startDateTime, endDateTime) {
       </div>
 
       <div class="mb-4">
-        <table class="w-full border-collapse border text-3xl" id="summary-table-${unit}">
+        <table class="w-full border-collapse border text-5xl" id="summary-table-${unit}">
           <thead>
             <tr class="bg-gray-200 text-center">
-              <th class="border px-4 py-2">Toplam Üretim</th>
+              <th class="border px-4 py-2">Üretim</th>
               <th class="border px-4 py-2">FPR (%)</th>
             </tr>
           </thead>
@@ -122,7 +122,7 @@ function createUnitCard(unit, startDateTime, endDateTime) {
         </table>
       </div>
 
-      <table class="w-full border-collapse border text-3xl">
+      <table class="w-full border-collapse border text-4xl">
         <thead>
           <tr class="bg-gray-200 text-center">
             <th class="border px-4 py-2">Saat</th>
@@ -193,20 +193,24 @@ function renderTable(unitName, data) {
   let totalSuccess = 0,
     totalFail = 0,
     totalProduction = 0;
-  data.forEach((row) => {
+    
+  // Sort data by hour in descending order to display newest hours at the top
+  const sortedData = [...data].sort((a, b) => b.hour - a.hour);
+  
+  sortedData.forEach((row) => {
     let failRate = row.success > 0 ? ((row.fail / row.success) * 100).toFixed(1) : "0.0";
     tableBody.innerHTML += `
       <tr>
-        <td class="border px-4 py-2 text-center text-5xl">${row.hour}:00 - ${
+        <td class="border px-4 py-2 text-center text-5xl font-bold">${row.hour}:00 - ${
       row.hour + 1
     }:00</td>
-        <td class="border px-4 py-2 text-black text-center text-5xl">${
+        <td class="border px-4 py-2 text-black text-center text-5xl font-bold">${
           row.success
         }</td>
-        <td class="border px-4 py-2 text-red-800 text-center text-5xl">${
+        <td class="border px-4 py-2 text-red-800 text-center text-5xl font-bold">${
           row.fail
         }</td>
-        <td class="border px-4 py-2 text-center text-5xl">${100 - failRate}</td>
+        <td class="border px-4 py-2 text-center text-5xl font-bold">${100 - failRate}</td>
       </tr>
     `;
     totalSuccess += row.success;
