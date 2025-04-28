@@ -100,28 +100,28 @@ function createUnitCard(unit, startDateTime, endDateTime) {
   const currentTime = `${hours}:${minutes}`;
 
   div.innerHTML = `
-      <h2 class="text-6xl font-bold mb-4 text-center">${displayUnitName}</h2>
-      <div class="flex flex-col md:flex-row gap-4 mb-4">
-        <div class="w-full md:w-1/4 flex items-center justify-center">
-          <div class="text-8xl font-bold" id="current-time-${unit}">${currentTime}</div>
-        </div>
-        <div class="w-full md:w-3/4 flex items-center">
-          <table class="w-full border-collapse border text-3xl" id="summary-table-${unit}">
-            <thead>
-              <tr class="bg-gray-200 text-center">
-                <th class="border px-4 py-2">Toplam Üretim</th>
-                <th class="border px-4 py-2">FPR (%)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="border px-4 py-3 text-black font-bold text-center text-7xl" id="total-success-${unit}">0</td>
-                <td class="border px-4 py-3 font-bold text-center text-7xl" id="total-fail-rate-${unit}">0.00%</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <div class="flex flex-col md:flex-row justify-around items-center mb-4">
+        <h2 class="text-7xl font-bold text-center md:text-left">${displayUnitName}</h2>
+        <div class="text-8xl font-bold mt-2 md:mt-0" id="current-time-${unit}">${currentTime}</div>
       </div>
+
+      <div class="mb-4">
+        <table class="w-full border-collapse border text-3xl" id="summary-table-${unit}">
+          <thead>
+            <tr class="bg-gray-200 text-center">
+              <th class="border px-4 py-2">Toplam Üretim</th>
+              <th class="border px-4 py-2">FPR (%)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="border px-4 py-3 text-black font-bold text-center text-7xl" id="total-success-${unit}">0</td>
+              <td class="border px-4 py-3 font-bold text-center text-7xl" id="total-fail-rate-${unit}">0.00%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <table class="w-full border-collapse border text-3xl">
         <thead>
           <tr class="bg-gray-200 text-center">
