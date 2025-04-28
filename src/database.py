@@ -5,7 +5,7 @@ from models import Base
 
 # ✅ Daha sağlam bir bağlantı URL’si
 DATABASE_URL = (
-    "mssql+pyodbc://usrvbeap:Mv.A42-n@10.3.25.126:1433/VBE_BZD_DBC"
+    "mssql+pyodbc://usrvbeap:Mv.A42-n@ZHMANCLS03:1433/VBE_BZD_DBC"
     "?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Encrypt=no"
 )
 

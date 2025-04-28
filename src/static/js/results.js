@@ -10,7 +10,7 @@ let charts = {}; // Grafikleri takip etmek için
 let unitDataStore = {}; // Tüm üretim verilerini saklayacağız
 
 function connectWebSocket() {
-  ws = new WebSocket("ws://127.0.0.1:8000/ws/production");
+  ws = new WebSocket("ws://zhmanvbeprjen:8000/ws/production");
 
   ws.onopen = () => console.log("✅ WebSocket bağlantısı açıldı.");
 
@@ -122,7 +122,7 @@ function createUnitCard(unit, startDateTime, endDateTime) {
 
 async function fetchUnitData(unitName, startDateTime, endDateTime) {
   try {
-    let apiUrl = `http://127.0.0.1:8000/hourly-production?start_date=${startDateTime}&end_date=${endDateTime}&unit_name=${unitName}`;
+    let apiUrl = `http://zhmanvbeprjen:8000/hourly-production?start_date=${startDateTime}&end_date=${endDateTime}&unit_name=${unitName}`;
     let response = await fetch(apiUrl);
     let result = await response.json();
     if (!result.error) {

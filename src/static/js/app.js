@@ -4,7 +4,7 @@ async function populateUnitCheckboxes() {
   checkboxContainer.innerHTML = "";
   
   try {
-    let response = await fetch("http://127.0.0.1:8000/unit-names");
+    let response = await fetch("http://zhnamvbeprjen:8000/unit-names");
     let result = await response.json();
 
     if (result.unit_names && result.unit_names.length > 0) {
