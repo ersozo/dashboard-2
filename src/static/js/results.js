@@ -194,7 +194,7 @@ function renderTable(unitName, data) {
     totalFail = 0,
     totalProduction = 0;
   data.forEach((row) => {
-    let failRate = row.total > 0 ? ((row.fail / row.total) * 100).toFixed(1) : "0.0";
+    let failRate = row.success > 0 ? ((row.fail / row.success) * 100).toFixed(1) : "0.0";
     tableBody.innerHTML += `
       <tr>
         <td class="border px-4 py-2 text-center text-5xl">${row.hour}:00 - ${
