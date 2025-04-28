@@ -94,10 +94,10 @@ function createUnitCard(unit, startDateTime, endDateTime) {
   const displayUnitName = unit.replace(/\+/g, '');
 
   div.innerHTML = `
-      <h1 class="text-lg font-bold mb-4">${displayUnitName}</h1>
+      <h2 class="text-4xl font-bold mb-4">${displayUnitName}</h2>
       <div class="flex flex-col md:flex-row gap-4 mb-4">
         <div class="w-full md:w-1/2 flex items-center">
-          <table class="w-full border-collapse border text-2xl" id="summary-table-${unit}">
+          <table class="w-full border-collapse border text-3xl" id="summary-table-${unit}">
             <thead>
               <tr class="bg-gray-200 text-center">
                 <th class="border px-4 py-2">OK</th>
@@ -108,10 +108,10 @@ function createUnitCard(unit, startDateTime, endDateTime) {
             </thead>
             <tbody>
               <tr>
-                <td class="border px-4 py-3 text-green-600 font-bold text-center text-2xl" id="total-success-${unit}">0</td>
-                <td class="border px-4 py-3 text-red-600 font-bold text-center text-2xl" id="total-fail-${unit}">0</td>
-                <td class="border px-4 py-3 text-blue-600 font-bold text-center text-2xl" id="total-production-${unit}">0</td>
-                <td class="border px-4 py-3 font-bold text-center text-2xl" id="total-fail-rate-${unit}">0.00%</td>
+                <td class="border px-4 py-3 text-green-600 font-bold text-center text-3xl" id="total-success-${unit}">0</td>
+                <td class="border px-4 py-3 text-red-600 font-bold text-center text-3xl" id="total-fail-${unit}">0</td>
+                <td class="border px-4 py-3 text-blue-600 font-bold text-center text-3xl" id="total-production-${unit}">0</td>
+                <td class="border px-4 py-3 font-bold text-center text-3xl" id="total-fail-rate-${unit}">0.00%</td>
               </tr>
             </tbody>
           </table>
@@ -249,14 +249,15 @@ function renderChart(unitName, data) {
         tooltip: { enabled: true },
         datalabels: {
           color: "#000",
-          font: { weight: "bold", size: 24 },
+          font: { weight: "bold", size: 30 },
           anchor: "end",
           align: "start",
           offset: 10,
           formatter: (value, ctx) => {
             let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
             let percentage = ((value / sum) * 100).toFixed(1) + "%";
-            return `${value} (${percentage})`;
+            // return `${value} (${percentage})`;
+            return `${percentage}`;
           },
         },
       },
