@@ -1,5 +1,33 @@
 import { API_BASE_URL } from "./config.js";
 
+// Define time periods and export them for use in other modules
+export const timePeriods = {
+  "08:00-16:00": { start: "08:00", end: "16:00" },
+  "16:00-24:00": { start: "16:00", end: "00:00", overnight: true },
+  "24:00-08:00": { start: "00:00", end: "08:00", overnight: true },
+  "08:00-20:00": { start: "08:00", end: "20:00" },
+  "20:00-08:00": { start: "20:00", end: "08:00", overnight: true },
+};
+
+// Helper function to set date time for a period
+export function setDateTimeForPeriod(period) {
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  let start, end;
+  if (timePeriods[period].overnight) {
+    // Overnight period: end time is next day
+    start = `${todayStr}T${timePeriods[period].start}`;
+    let endDate = new Date(now);
+    endDate.setDate(endDate.getDate() + 1); // Always set to next day for overnight periods
+    const endDayStr = endDate.toISOString().slice(0, 10);
+    end = `${endDayStr}T${timePeriods[period].end}`;
+  } else {
+    start = `${todayStr}T${timePeriods[period].start}`;
+    end = `${todayStr}T${timePeriods[period].end}`;
+  }
+  return { start, end };
+}
+
 // ÜRETİM HATLARI SEÇİMİ CHECKBOX'LARINI DOLDUR
 async function populateUnitCheckboxes() {
   let checkboxContainer = document.getElementById("unit-checkboxes");
@@ -51,32 +79,6 @@ document.addEventListener("DOMContentLoaded", function () {
   console.log("DOM yüklendi");
 
   // Zaman dilimi checkboxları
-  const timePeriods = {
-    "08:00-16:00": { start: "08:00", end: "16:00" },
-    "16:00-24:00": { start: "16:00", end: "00:00", overnight: true },
-    "24:00-08:00": { start: "00:00", end: "08:00", overnight: true },
-    "08:00-20:00": { start: "08:00", end: "20:00" },
-    "20:00-08:00": { start: "20:00", end: "08:00", overnight: true },
-  };
-
-  function setDateTimeForPeriod(period) {
-    const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
-    let start, end;
-    if (timePeriods[period].overnight) {
-      // Overnight period: end time is next day
-      start = `${todayStr}T${timePeriods[period].start}`;
-      let endDate = new Date(now);
-      endDate.setDate(endDate.getDate() + 1); // Always set to next day for overnight periods
-      const endDayStr = endDate.toISOString().slice(0, 10);
-      end = `${endDayStr}T${timePeriods[period].end}`;
-    } else {
-      start = `${todayStr}T${timePeriods[period].start}`;
-      end = `${todayStr}T${timePeriods[period].end}`;
-    }
-    return { start, end };
-  }
-
   const timePeriodCheckboxes = document.querySelectorAll(
     ".time-period-checkbox"
   );

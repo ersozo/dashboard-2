@@ -1,6 +1,7 @@
 // Sonuçları göstermek için
 // URL parametrelerinden seçimleri al ve verileri getir
 import { API_BASE_URL } from "./config.js";
+import { timePeriods, setDateTimeForPeriod } from "./app.js"; // Import time periods and setDateTimeForPeriod from app.js
 Chart.register(ChartDataLabels);
 
 
@@ -8,6 +9,7 @@ Chart.register(ChartDataLabels);
 let ws;
 let charts = {}; // Grafikleri takip etmek için
 let unitDataStore = {}; // Tüm üretim verilerini saklayacağız
+let currentPeriod = null; // Track the current time period instead of just the hour
 
 function connectWebSocket() {
   // Replace "http" with "ws" to create WebSocket URL
@@ -44,7 +46,18 @@ function connectWebSocket() {
 
 connectWebSocket();
 
-
+// Function to update the global current time display
+function updateGlobalTime() {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const currentTime = `${hours}:${minutes}`;
+  
+  const globalTimeElement = document.getElementById('global-current-time');
+  if (globalTimeElement) {
+    globalTimeElement.textContent = currentTime;
+  }
+}
 
 function getQueryParams() {
   const params = {};
@@ -83,6 +96,10 @@ async function fetchAndShowResults() {
 
   // Create unit cards
   units.forEach(unit => createUnitCard(unit, start, end));
+
+  // Initialize and update the global time
+  updateGlobalTime();
+  setInterval(updateGlobalTime, 60000); // Update the time every minute
 }
 
 function createUnitCard(unit, startDateTime, endDateTime) {
@@ -93,59 +110,39 @@ function createUnitCard(unit, startDateTime, endDateTime) {
   // Remove '+' characters from the unit name for display
   const displayUnitName = unit.replace(/\+/g, '');
 
-  // Create current time string in HH:MM format
-  const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const currentTime = `${hours}:${minutes}`;
-
   div.innerHTML = `
-      <div class="flex flex-col md:flex-row justify-around items-center mb-4">
-        <h2 class="text-7xl font-bold text-center md:text-left">${displayUnitName}</h2>
-        <div class="text-8xl font-bold mt-2 md:mt-0" id="current-time-${unit}">${currentTime}</div>
-      </div>
-
-      <div class="mb-4">
-        <table class="w-full border-collapse border text-5xl" id="summary-table-${unit}">
+      <div class="mb-6">
+        <table class="w-full border-collapse border text-6xl" id="summary-table-${unit}">
           <thead>
-            <tr class="bg-gray-300 text-center">
-              <th class="border px-4 py-2">Üretim</th>
+            <tr class="bg-red-900 text-center text-white">
+              <th class="border px-4 py-2">${displayUnitName.substring(5,7)} ÜRETİM</th>
               <th class="border px-4 py-2">FPR (%)</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td class="border px-4 py-3 text-black font-bold text-center text-7xl" id="total-success-${unit}">0</td>
-              <td class="border px-4 py-3 font-bold text-center text-7xl" id="total-fail-rate-${unit}">0.0%</td>
+              <td class="border px-4 py-3 text-black font-bold text-center text-9xl bg-yellow-200" id="total-success-${unit}">0</td>
+              <td class="border px-4 py-3 font-bold text-center text-9xl bg-green-200" id="total-fail-rate-${unit}">0.0%</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <table class="w-full border-collapse border text-4xl">
-        <thead>
-          <tr class="bg-gray-300 text-center">
-            <th class="border px-4 py-2">Saat</th>
-            <th class="border px-4 py-2">Üretim</th>
-            <th class="border px-4 py-2">Tamir</th>
-            <th class="border px-4 py-2">FPR (%)</th>
-          </tr>
-        </thead>
-        <tbody id="table-${unit}"></tbody>
-      </table>
+      <div class="mt-4">
+        <table class="w-full border-collapse border text-4xl">
+          <thead>
+            <tr class="bg-gray-300 text-center">
+              <th class="border px-4 py-2">Saat</th>
+              <th class="border px-4 py-2">Üretim</th>
+              <th class="border px-4 py-2">Tamir</th>
+              <th class="border px-4 py-2">FPR (%)</th>
+            </tr>
+          </thead>
+          <tbody id="table-${unit}"></tbody>
+        </table>
+      </div>
     `;
   container.appendChild(div);
-
-  // Update time every minute
-  setInterval(() => {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const timeElement = document.getElementById(`current-time-${unit}`);
-    if (timeElement) {
-      timeElement.textContent = `${hours}:${minutes}`;
-    }
-  }, 60000);
 
   // Check if we already have real-time data for this unit from websocket
   if (unitDataStore[unit] && unitDataStore[unit].length > 0) {
@@ -226,19 +223,81 @@ function renderTable(unitName, data) {
   // document.getElementById(`total-fail-${unitName}`).textContent = totalFail;
   document.getElementById(`total-fail-rate-${unitName}`).textContent = `${(100 - overallFailRate).toFixed(1)}`;
 
-  // // Add the total row to the main table
-  // tableBody.innerHTML += `
-  //   <tr class="bg-gray-300 font-bold">
-  //     <td class="border px-4 py-2">TOPLAM</td>
-  //     <td class="border px-4 py-2 text-green-600 text-center">${totalSuccess}</td>
-  //     <td class="border px-4 py-2 text-red-600 text-center">${totalFail}</td>
-  //     <td class="border px-4 py-2 text-blue-600 text-center">${totalProduction}</td>
-  //     <td class="border px-4 py-2 text-center">${overallFailRate}%</td>
-  //   </tr>
-  // `;
 }
 
-document.addEventListener("DOMContentLoaded", fetchAndShowResults);
+function checkForNewTimePeriod() {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const currentTimeDecimal = currentHour + currentMinute / 60;
+
+  // Detect which time period we're in now
+  let newPeriod = null;
+  for (const [period, timeRange] of Object.entries(timePeriods)) {
+    const startHour = parseInt(timeRange.start.split(":")[0]);
+    const startMinute = parseInt(timeRange.start.split(":")[1]);
+    const endHour = parseInt(timeRange.end.split(":")[0]);
+    const endMinute = parseInt(timeRange.end.split(":")[1]);
+
+    const startTimeDecimal = startHour + startMinute / 60;
+    const endTimeDecimal = endHour + endMinute / 60;
+
+    if (timeRange.overnight) {
+      // For overnight periods (ending next day)
+      if (currentTimeDecimal >= startTimeDecimal || currentTimeDecimal <= endTimeDecimal) {
+        newPeriod = period;
+        break;
+      }
+    } else {
+      // For same-day periods
+      if (currentTimeDecimal >= startTimeDecimal && currentTimeDecimal < endTimeDecimal) {
+        newPeriod = period;
+        break;
+      }
+    }
+  }
+
+  // If period has changed or it's the first check (currentPeriod is null), refresh data
+  if (newPeriod !== currentPeriod) {
+    console.log(`⏰ New time period detected: ${currentPeriod || 'none'} -> ${newPeriod}. Refreshing data...`);
+    currentPeriod = newPeriod;
+
+    // Get the current parameters and fetch fresh data for all units
+    const params = getQueryParams();
+    const units = params.unit_name || [];
+
+    if (units.length && newPeriod && timePeriods[newPeriod]) {
+      // Use the imported helper function to get start and end dates
+      const { start: adjustedStart, end: adjustedEnd } = setDateTimeForPeriod(newPeriod);
+
+      // Fetch fresh data for all units with adjusted time period
+      units.forEach(unit => fetchUnitData(unit, adjustedStart, adjustedEnd));
+
+      // Update the URL parameters to reflect the new time period
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set('start_date', adjustedStart);
+      newUrl.searchParams.set('end_date', adjustedEnd);
+      window.history.replaceState({}, '', newUrl.toString());
+    } else if (units.length) {
+      // If no specific period is detected, maintain current date parameters
+      const start = params.start_date ? params.start_date[0] : null;
+      const end = params.end_date ? params.end_date[0] : null;
+
+      if (start && end) {
+        units.forEach(unit => fetchUnitData(unit, start, end));
+      }
+    }
+  }
+}
+
+// Run the time period check every minute
+setInterval(checkForNewTimePeriod, 60000);
+
+document.addEventListener("DOMContentLoaded", () => {
+  fetchAndShowResults();
+  // Initial time period check
+  checkForNewTimePeriod();
+});
 
 // Fetch and update data every 30 seconds
 setInterval(() => {
