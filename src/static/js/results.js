@@ -195,7 +195,8 @@ function renderTable(unitName, data) {
   const sortedData = [...data].sort((a, b) => b.hour - a.hour);
 
   sortedData.forEach((row, index) => {
-    let failRate = row.success > 0 ? ((row.fail / row.success) * 100).toFixed(1) : "0.0";
+    // let failRate = row.success > 0 ? ((row.fail / row.success) * 100).toFixed(1) : "0.0";
+    let failRate = ((row.fail / (row.success + row.fail)) * 100).toFixed(1)
     const rowClass = index % 2 === 0 ? "" : "bg-gray-200";
     tableBody.innerHTML += `
       <tr class="${rowClass}">
@@ -213,9 +214,10 @@ function renderTable(unitName, data) {
     `;
     totalSuccess += row.success;
     totalFail += row.fail;
-    // totalProduction += row.total;
+    totalProduction += row.total;
   });
-  let overallFailRate = totalSuccess > 0 ? ((totalFail / totalSuccess) * 100).toFixed(1) : "0.0";
+  // let overallFailRate = totalSuccess > 0 ? ((totalFail / totalSuccess) * 100).toFixed(1) : "0.0";
+  let overallFailRate = ((totalFail / totalProduction) * 100).toFixed(1)
 
   // Update the summary table - only updating what's visible in the new layout
   document.getElementById(`total-success-${unitName}`).textContent = totalSuccess;
