@@ -52,7 +52,7 @@ function updateGlobalTime() {
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
   const currentTime = `${hours}:${minutes}`;
-  
+
   const globalTimeElement = document.getElementById('global-current-time');
   if (globalTimeElement) {
     globalTimeElement.textContent = currentTime;
@@ -116,13 +116,13 @@ function createUnitCard(unit, startDateTime, endDateTime) {
           <thead>
             <tr class="bg-red-900 text-center text-white">
               <th class="border px-4 py-2">${displayUnitName.substring(5,7)} ÜRETİM</th>
-              <th class="border px-4 py-2">FPR (%)</th>
+              <th class="border px-4 py-2">OEE (%)</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td class="border px-4 py-3 text-black font-bold text-center text-9xl bg-yellow-200" id="total-success-${unit}">0</td>
-              <td class="border px-4 py-3 font-bold text-center text-9xl bg-green-200" id="total-fail-rate-${unit}">0.0%</td>
+              <td class="border px-4 py-3 font-bold text-center text-9xl bg-green-200" id="total-fail-rate-${unit}">0.0</td>
             </tr>
           </tbody>
         </table>
@@ -135,7 +135,7 @@ function createUnitCard(unit, startDateTime, endDateTime) {
               <th class="border px-4 py-2">Saat</th>
               <th class="border px-4 py-2">Üretim</th>
               <th class="border px-4 py-2">Tamir</th>
-              <th class="border px-4 py-2">FPR (%)</th>
+              <th class="border px-4 py-2">OEE (%)</th>
             </tr>
           </thead>
           <tbody id="table-${unit}"></tbody>
@@ -155,7 +155,7 @@ function createUnitCard(unit, startDateTime, endDateTime) {
 
 async function fetchUnitData(unitName, startDateTime, endDateTime) {
   try {
-    let apiUrl = `${API_BASE_URL}/hourly-production?start_date=${startDateTime}&end_date=${endDateTime}&unit_name=${unitName}`;
+    let apiUrl = `${API_BASE_URL}/hourly-production/?start_date=${startDateTime}&end_date=${endDateTime}&unit_name=${unitName}`;
     let response = await fetch(apiUrl);
     let result = await response.json();
     if (!result.error) {
@@ -190,13 +190,35 @@ function renderTable(unitName, data) {
   let totalSuccess = 0,
     totalFail = 0,
     totalProduction = 0;
+  let totalOEE = 0;
+  let dataPointsWithOEE = 0;
 
   // Sort data by hour in descending order to display newest hours at the top
   const sortedData = [...data].sort((a, b) => b.hour - a.hour);
 
+  console.log(`Data for ${unitName}:`, sortedData);
+
   sortedData.forEach((row, index) => {
-    // let failRate = row.success > 0 ? ((row.fail / row.success) * 100).toFixed(1) : "0.0";
-    let failRate = ((row.fail / (row.success + row.fail)) * 100).toFixed(1)
+    // Check if the new fields exist in the data
+    const hasOEEData = row.hasOwnProperty('oee') && row.hasOwnProperty('quality') && row.hasOwnProperty('performance');
+    console.log(`Row ${index} has OEE data: ${hasOEEData}, OEE value: ${hasOEEData ? row.oee : 'N/A'}`);
+
+    let qualityRate = 0;
+    if (hasOEEData) {
+      qualityRate = row.quality * 100;
+      totalOEE += row.oee;
+      dataPointsWithOEE++;
+    } else {
+      // Fallback to the old calculation if oee is not provided
+      const successRate = row.success + row.fail > 0 ? row.success / (row.success + row.fail) : 0;
+      qualityRate = (successRate * 100).toFixed(1);
+
+      // Also calculate an estimated OEE value in case we need it
+      const estimatedOEE = successRate;
+      totalOEE += estimatedOEE;
+      dataPointsWithOEE++;
+    }
+
     const rowClass = index % 2 === 0 ? "" : "bg-gray-200";
     tableBody.innerHTML += `
       <tr class="${rowClass}">
@@ -209,22 +231,38 @@ function renderTable(unitName, data) {
         <td class="border px-4 py-2 text-red-800 text-center text-5xl font-bold">${
           row.fail
         }</td>
-        <td class="border px-4 py-2 text-center text-5xl font-bold">${(100 - failRate).toFixed(1)}</td>
+        <td class="border px-4 py-2 text-center text-5xl font-bold">${hasOEEData ? qualityRate.toFixed(1) : qualityRate}</td>
       </tr>
     `;
     totalSuccess += row.success;
     totalFail += row.fail;
     totalProduction += row.total;
   });
-  // let overallFailRate = totalSuccess > 0 ? ((totalFail / totalSuccess) * 100).toFixed(1) : "0.0";
-  let overallFailRate = ((totalFail / totalProduction) * 100).toFixed(1)
 
-  // Update the summary table - only updating what's visible in the new layout
+  // Calculate average OEE across all hourly data points
+  let avgOEE = 0;
+  if (dataPointsWithOEE > 0) {
+    avgOEE = (totalOEE / dataPointsWithOEE) * 100;
+  } else if (totalSuccess + totalFail > 0) {
+    // If no OEE data, calculate a simple estimate based on success rate
+    avgOEE = (totalSuccess / (totalSuccess + totalFail)) * 100;
+  }
+
+  console.log(`${unitName} - Total OEE: ${totalOEE}, Data points: ${dataPointsWithOEE}, Avg OEE: ${avgOEE}`);
+
+  // Update the summary table with OEE instead of FPR
   document.getElementById(`total-success-${unitName}`).textContent = totalSuccess;
-  // Still calculate total-fail but don't display it in the table
-  // document.getElementById(`total-fail-${unitName}`).textContent = totalFail;
-  document.getElementById(`total-fail-rate-${unitName}`).textContent = `${(100 - overallFailRate).toFixed(1)}`;
 
+  // Update the header to show OEE instead of FPR
+  // Escape '+' character for CSS selector
+  const safeUnitName = unitName.replace(/\+/g, '\\+');
+  const headerElement = document.querySelector(`#summary-table-${safeUnitName} thead tr th:nth-child(2)`);
+  if (headerElement) {
+    headerElement.textContent = "OEE (%)";
+  }
+
+  // Display OEE value in the summary table
+  document.getElementById(`total-fail-rate-${unitName}`).textContent = avgOEE.toFixed(1);
 }
 
 function checkForNewTimePeriod() {
