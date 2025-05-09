@@ -84,5 +84,5 @@ def inspect_values(table_name, schema="dbo", columns="*", limit=5):
 
 # inspect_tables()
 inspect_columns("ProductRecordLogModels")
-# inspect_values("ProductRecordLog")
+inspect_values("ProductRecordLog")
 # inspect_values("ProductRecordLog", columns=["Model", "ModelSuresiSN"])

@@ -9,6 +9,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
+
 
 import crud
 import schemas
@@ -39,22 +41,16 @@ def results_page(request: Request):
     return templates.TemplateResponse("results.html", {"request": request})
 
 
-# @app.get("/production", response_model=list[schemas.ProductionDataResponse])
-# def get_production_data(db: Session = Depends(get_db)):
-#     return crud.get_production_data(db)
-
-
-@app.get("/unit-names")
-def get_unit_names(db: Session = Depends(get_db)):
-    try:
-        query = text("SELECT DISTINCT UnitName FROM dbo.ProductRecordLog")
-        result = db.execute(query).fetchall()
-        unit_names = [row[0] for row in result]
-        return {"unit_names": unit_names}
-    except Exception as e:
-        logging.error(f"Hata oluştu: {e}")
-        return {"error": "Bir hata oluştu, lütfen logları kontrol edin."}
-
+def calculate_elapsed_seconds(hour: int, base_date: datetime) -> int:
+    """Verilen saat için o ana kadar geçen süreyi saniye cinsinden döndür."""
+    now = datetime.now()
+    start_of_hour = datetime.combine(base_date.date(), datetime.min.time()) + timedelta(hours=hour)
+    if now >= start_of_hour + timedelta(hours=1):
+        return 3600
+    elif now < start_of_hour:
+        return 0
+    else:
+        return int((now - start_of_hour).total_seconds())
 
 @app.get("/hourly-production/")
 async def get_hourly_production(
@@ -66,101 +62,115 @@ async def get_hourly_production(
     try:
         start_date = start_date.replace("T", " ")
         end_date = end_date.replace("T", " ")
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
 
-        if isinstance(unit_name, list) and len(unit_name) == 1:
-            unit_name = unit_name[0]
+        result_data = {}
+
+        for unit in unit_name:
             query = text("""
                 SELECT
                     DATEPART(HOUR, KayitTarihi) AS Hour,
-                    COUNT(*) AS TotalCount,
-                    SUM(CASE WHEN TestSonucu = 1 THEN 1 ELSE 0 END) AS SuccessCount,
-                    SUM(CASE WHEN TestSonucu = 0 THEN 1 ELSE 0 END) AS FailCount,
-                    AVG(ModelSuresiSN) AS AvgCycleTime
+                    Model,
+                    COUNT(*) AS ModelProduction,
+                    AVG(ModelSuresiSN) AS Target
                 FROM dbo.ProductRecordLog
                 WHERE KayitTarihi BETWEEN :start_date AND :end_date AND UnitName = :unit_name
-                GROUP BY DATEPART(HOUR, KayitTarihi)
-                ORDER BY Hour
+                GROUP BY DATEPART(HOUR, KayitTarihi), Model
+                ORDER BY Hour, Model
             """)
             result = db.execute(
-                query,
-                {
-                    "start_date": start_date,
-                    "end_date": end_date,
-                    "unit_name": unit_name,
-                },
+                query, {"start_date": start_date, "end_date": end_date, "unit_name": unit}
             ).fetchall()
-            data = []
-            for row in result:
-                total = row[1]
-                success = row[2]
-                avg_cycle_time = row[4] or 0
 
-                # Calculate metrics
+            hour_model_data: dict[int, list[dict[str, any]]] = {}
+            for row in result:
+                if row is None:
+                    continue
+                hour = row[0]
+                model = row[1]
+                model_prod = row[2]
+                target = row[3] or 0
+                if hour not in hour_model_data:
+                    hour_model_data[hour] = []
+                hour_model_data[hour].append({
+                    "model": model,
+                    "model_production": model_prod,
+                    "target": target
+                })
+
+            unit_data = []
+            for hour, models in hour_model_data.items():
+                summary_query = text("""
+                    SELECT
+                        COUNT(*) AS TotalCount,
+                        SUM(CASE WHEN TestSonucu = 1 THEN 1 ELSE 0 END) AS SuccessCount,
+                        SUM(CASE WHEN TestSonucu = 0 THEN 1 ELSE 0 END) AS FailCount
+                    FROM dbo.ProductRecordLog
+                    WHERE KayitTarihi BETWEEN :start_date AND :end_date AND UnitName = :unit_name AND DATEPART(HOUR, KayitTarihi) = :hour
+                """)
+                summary_result = db.execute(
+                    summary_query,
+                    {
+                        "start_date": start_date,
+                        "end_date": end_date,
+                        "unit_name": unit,
+                        "hour": hour
+                    }
+                ).fetchone()
+                if summary_result is None:
+                    total, success, fail = 0, 0, 0
+                else:
+                    total, success, fail = summary_result
                 quality = (success / total) if total > 0 else 0
-                ideal_output = (3600 / avg_cycle_time) if avg_cycle_time > 0 else 0
-                performance = (total / ideal_output) if ideal_output > 0 else 0
-                # OEE = Quality * Performance
+
+                elapsed_seconds = calculate_elapsed_seconds(hour, start_dt)
+                total_performance = 0
+                for m in models:
+                    model_prod = m["model_production"]
+                    target = m["target"]
+                    if target and target > 0:
+                        # Calculate ideal cycle time as 3600/Target (seconds per unit)
+                        ideal_cycle_time = 3600 / target
+                        # Calculate performance contribution as (model_production * ideal_cycle_time) / elapsed_seconds
+                        if elapsed_seconds > 0:
+                            performance_contribution = (model_prod * ideal_cycle_time) / elapsed_seconds
+                            total_performance += performance_contribution
+                            logging.info(f"Unit {unit}, Hour {hour}, Model {m['model']}: Prod={model_prod}, Target={target}, Ideal Cycle Time={ideal_cycle_time:.2f}, Contribution={performance_contribution:.2f}")
+                        else:
+                            logging.warning(f"Unit {unit}, Hour {hour}, Model {m['model']}: No elapsed time, skipping performance.")
+                    else:
+                        logging.warning(f"Unit {unit}, Hour {hour}, Model {m['model']}: No target, skipping performance.")
+
+                # Overall performance is the sum of all model contributions
+                performance = total_performance
+                # OEE is calculated as Quality × Performance
                 oee = quality * performance
 
-                data.append({
-                    "hour": row[0],
+                entry_data = {
+                    "hour": hour,
                     "total": total,
                     "success": success,
-                    "fail": row[3],
-                    "avg_cycle_time": avg_cycle_time,
+                    "fail": fail,
                     "quality": round(quality, 2),
                     "performance": round(performance, 2),
                     "oee": round(oee, 2)
-                })
-            return {"data": data}
-        else:
-            all_data = {}
-            for unit in unit_name:
-                query = text("""
-                    SELECT
-                        DATEPART(HOUR, KayitTarihi) AS Hour,
-                        COUNT(*) AS TotalCount,
-                        SUM(CASE WHEN TestSonucu = 1 THEN 1 ELSE 0 END) AS SuccessCount,
-                        SUM(CASE WHEN TestSonucu = 0 THEN 1 ELSE 0 END) AS FailCount,
-                        AVG(ModelSuresiSN) AS AvgCycleTime
-                    FROM dbo.ProductRecordLog
-                    WHERE KayitTarihi BETWEEN :start_date AND :end_date AND UnitName = :unit_name
-                    GROUP BY DATEPART(HOUR, KayitTarihi)
-                    ORDER BY Hour
-                """)
-                result = db.execute(
-                    query,
-                    {"start_date": start_date, "end_date": end_date, "unit_name": unit},
-                ).fetchall()
-                unit_data = []
-                for row in result:
-                    total = row[1]
-                    success = row[2]
-                    avg_cycle_time = row[4] or 0
+                }
+                logging.info(f"[DATA DEBUG] Adding entry for unit {unit}, hour {hour}: {entry_data}")
+                unit_data.append(entry_data)
 
-                    # Calculate metrics
-                    quality = (success / total) if total > 0 else 0
-                    ideal_output = (3600 / avg_cycle_time) if avg_cycle_time > 0 else 0
-                    performance = (total / ideal_output) if ideal_output > 0 else 0
-                    # OEE = Quality * Performance
-                    oee = quality * performance
+            result_data[unit] = unit_data
+            logging.info(f"[DATA DEBUG] Final data for unit {unit}: {unit_data}")
 
-                    unit_data.append({
-                        "hour": row[0],
-                        "total": total,
-                        "success": success,
-                        "fail": row[3],
-                        "avg_cycle_time": avg_cycle_time,
-                        "quality": round(quality, 2),
-                        "performance": round(performance, 2),
-                        "oee": round(oee, 2)
-                    })
-                all_data[unit] = unit_data
+        final_response = {"data": result_data}
+        logging.info(f"[DATA DEBUG] Sending WebSocket response: {final_response}")
+        return final_response
 
-            return {"data": all_data}
     except Exception as e:
         logging.error(f"Hata oluştu: {e}")
         return {"error": "Bir hata oluştu, lütfen logları kontrol edin."}
+
+
+
 
 
 # Aktif WebSocket'ler listesi
@@ -176,7 +186,43 @@ async def send_production_data(websocket: WebSocket):
         while True:
             db = next(get_db())
             try:
-                query = text("""
+                # First, get model-specific data
+                model_query = text("""
+                    SELECT
+                        UnitName,
+                        DATEPART(HOUR, KayitTarihi) AS Hour,
+                        Model,
+                        COUNT(*) AS ModelProduction,
+                        AVG(ModelSuresiSN) AS Target
+                    FROM dbo.ProductRecordLog
+                    WHERE KayitTarihi >= DATEADD(HOUR, -1, GETDATE())
+                    GROUP BY UnitName, DATEPART(HOUR, KayitTarihi), Model
+                    ORDER BY UnitName, Hour, Model
+                """)
+                model_result = db.execute(model_query).fetchall()
+
+                # Group model data by unit and hour
+                hour_model_data: dict[tuple[str, int], list[dict[str, any]]] = {}
+                for row in model_result:
+                    if row is None:
+                        continue
+                    unit_name = row[0]
+                    hour = row[1]
+                    model = row[2]
+                    model_prod = row[3]
+                    target = row[4] or 0
+
+                    key = (unit_name, hour)
+                    if key not in hour_model_data:
+                        hour_model_data[key] = []
+                    hour_model_data[key].append({
+                        "model": model,
+                        "model_production": model_prod,
+                        "target": target
+                    })
+
+                # Get summary data for quality calculation
+                summary_query = text("""
                     SELECT
                         UnitName,
                         DATEPART(HOUR, KayitTarihi) AS Hour,
@@ -188,22 +234,76 @@ async def send_production_data(websocket: WebSocket):
                     GROUP BY UnitName, DATEPART(HOUR, KayitTarihi)
                     ORDER BY UnitName, Hour
                 """)
-                result = db.execute(query).fetchall()
+                summary_result = db.execute(summary_query).fetchall()
+
+                # Calculate metrics and group by unit
                 grouped_data = {}
-                for row in result:
+                now = datetime.now()
+                base_date = now.replace(minute=0, second=0, microsecond=0)
+
+                for row in summary_result:
                     unit_name = row[0]
+                    hour = row[1]
+                    total = row[2]
+                    success = row[3]
+                    fail = row[4]
+
+                    # Calculate quality
+                    quality = (success / total) if total > 0 else 0
+
+                    # Calculate performance using model data
+                    elapsed_seconds = calculate_elapsed_seconds(hour, base_date)
+                    total_performance = 0
+                    logging.info(f"[PERF DEBUG] Unit {unit_name}, Hour {hour} - Elapsed seconds: {elapsed_seconds}")
+
+                    # Get model data for this unit and hour
+                    models = hour_model_data.get((unit_name, hour), [])
+                    logging.info(f"[PERF DEBUG] Models for unit {unit_name}, hour {hour}: {models}")
+
+                    for m in models:
+                        model_prod = m["model_production"]
+                        target = m["target"]
+                        logging.info(f"[PERF DEBUG] Model {m['model']}: Production={model_prod}, Target={target}")
+
+                        if target and target > 0:
+                            # Calculate target units per hour from cycle time
+                            target_per_hour = 3600 / target  # target is cycle time in seconds
+                            if elapsed_seconds > 0:
+                                # Calculate actual production rate
+                                actual_rate = model_prod  # This is already per hour since we group by hour
+                                # Performance is actual/target ratio
+                                performance_contribution = actual_rate / target_per_hour
+                                total_performance += performance_contribution
+                                logging.info(f"[PERF DEBUG] Model {m['model']}: Cycle={target:.1f}s, Target/h={target_per_hour:.1f}, Actual={actual_rate}, Perf={performance_contribution:.2f}")
+                            else:
+                                logging.warning(f"[PERF DEBUG] Elapsed seconds is 0 for unit {unit_name}, hour {hour}")
+                        else:
+                            logging.warning(f"[PERF DEBUG] Invalid target for model {m['model']}: {target}")
+
+                    # Calculate OEE
+                    performance = total_performance
+                    oee = quality * performance
+                    logging.info(f"[PERF DEBUG] Final values - Performance: {performance:.2f}, Quality: {quality:.2f}, OEE: {oee:.2f}")
+
                     entry = {
-                        "hour": row[1],
-                        "total": row[2],
-                        "success": row[3],
-                        "fail": row[4],
+                        "hour": hour,
+                        "total": total,
+                        "success": success,
+                        "fail": fail,
+                        "quality": round(quality, 2),
+                        "performance": round(performance, 2),
+                        "oee": round(oee, 2)
                     }
+
                     if unit_name not in grouped_data:
                         grouped_data[unit_name] = []
                     grouped_data[unit_name].append(entry)
 
                 try:
-                    await websocket.send_text(json.dumps(grouped_data))
+                    # Wrap the data in the same structure as the HTTP endpoint
+                    response_data = {"data": grouped_data}
+                    logging.info(f"[WS DEBUG] Sending data structure: {response_data}")
+                    await websocket.send_text(json.dumps(response_data))
                 except RuntimeError as e:
                     logging.error(f"WebSocket gönderme hatası: {e}")
                     break
